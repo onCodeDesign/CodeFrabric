@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Status:** Draft
-**Companion document:** [REQUIREMENTS.md](./REQUIREMENTS.md)
+**Companion documents:** [REQUIREMENTS.md](./REQUIREMENTS.md), [detailed-design.md](./detailed-design.md)
 
 ---
 
@@ -41,43 +41,24 @@ engine itself stays generic.
 
 ```
 CodeFabric.slnx
-├── CodeFabric.Core/              # All domain logic. No external dependencies.
-│   ├── Contracts/                # Public API surface consumed by the CLI
+├── CodeFabric.Core/       # Engine, workflow definitions, contracts, storage interface
+│   ├── Contracts/         # Public API consumed by the CLI
 │   │   ├── IWorkflowRunner.cs
 │   │   ├── WorkflowRunRequest.cs
 │   │   └── WorkflowRunResult.cs
-│   ├── Definitions/              # Concrete IWorkflowDefinition implementations
-│   │   └── FeatureWorkflow.cs
-│   ├── Engine/                   # Workflow-agnostic orchestration
+│   ├── Engine/            # Workflow-agnostic orchestration
 │   │   ├── IWorkflowDefinition.cs
 │   │   ├── WorkflowEngine.cs
-│   │   ├── PhaseDefinition.cs
-│   │   ├── StepDefinition.cs
-│   │   ├── StepKind.cs           # Work | Review
-│   │   ├── StepOutcome.cs
-│   │   ├── ReviewVerdict.cs
-│   │   └── LoopTerminationPolicy.cs
-│   ├── Agents/                   # Agent invocation abstraction
-│   │   ├── IAgentRunner.cs
-│   │   ├── CopilotCliAgentRunner.cs
-│   │   └── AgentInvocation.cs
-│   ├── Approval/                 # Phase-gate approval abstraction
-│   │   ├── IApprovalGate.cs
-│   │   └── ConsoleApprovalGate.cs
-│   ├── State/                    # Storage contract + in-memory state model
-│   │   ├── IWorkflowStorage.cs
-│   │   ├── WorkflowContext.cs
-│   │   ├── StepHistoryEntry.cs
-│   │   └── WorkflowStatus.cs
-│   └── Prompts/
-│       ├── IPromptRenderer.cs
-│       └── TemplatePromptRenderer.cs
+│   │   └── ...
+│   ├── Definitions/       # Concrete IWorkflowDefinition implementations
+│   ├── Agents/            # Agent invocation abstraction
+│   ├── Approval/          # Phase-gate approval abstraction
+│   ├── State/             # Storage contract + state model
+│   └── Prompts/           # Prompt rendering
 │
-├── CodeFabric.Storage/           # IWorkflowStorage implementations
-│   └── JsonWorkflowStorage.cs    # Persists to <repo>/.orchestrator/state.json
+├── CodeFabric.Storage/    # IWorkflowStorage implementations (JSON in v1)
 │
-└── CodeFabric/                   # Thin CLI client
-    └── Program.cs
+└── CodeFabric/            # Thin CLI client
 ```
 
 **Dependency rule (strictly enforced):**
@@ -108,32 +89,13 @@ Non-responsibilities: no phase/step knowledge, no persistence, no process spawni
 
 ### 4.2 Core — Contracts (`CodeFabric.Core.Contracts`)
 
-This is the **only** surface the CLI talks to. Minimum viable contract:
-
-```csharp
-public interface IWorkflowRunner
-{
-    Task<WorkflowRunResult> RunAsync(WorkflowRunRequest request, CancellationToken ct);
-}
-
-public sealed record WorkflowRunRequest(
-    string WorkflowType,          // e.g. "FeatureWorkflow"
-    string RepositoryPath,
-    string? FeatureDescription,   // null on resume
-    bool Resume);
-
-public sealed record WorkflowRunResult(
-    string WorkflowId,
-    WorkflowStatus Status,
-    string? CurrentPhase,
-    string? CurrentStep,
-    IReadOnlyList<StepHistoryEntry> History);
-```
+The **only** surface the CLI talks to. Exposes `IWorkflowRunner` plus the request/result
+DTOs used to start, resume, and report on a workflow run. Concrete shapes are specified
+in [detailed-design.md §1](./detailed-design.md).
 
 ### 4.3 Core — Engine (`CodeFabric.Core.Engine`)
 
-`WorkflowEngine` is the deterministic spine. It is completely generic — it knows nothing
-about HLD, code review, or Copilot. It drives whatever `IWorkflowDefinition` it is given.
+`WorkflowEngine` is the deterministic spine. It is completely generic. It drives whatever `IWorkflowDefinition` it is given.
 
 Responsibilities:
 
@@ -146,62 +108,29 @@ Responsibilities:
 
 ### 4.4 Core — `IWorkflowDefinition`
 
-Refined contract — replaces the current stub:
-
-```csharp
-public interface IWorkflowDefinition
-{
-    string WorkflowType { get; }
-    IReadOnlyList<PhaseDefinition> Phases { get; }
-    LoopTerminationPolicy GetLoopPolicy(PhaseDefinition phase);
-    string ResolveArtifactPath(WorkflowContext context, StepDefinition step);
-}
-
-public sealed record PhaseDefinition(
-    string Name,
-    IReadOnlyList<StepDefinition> Steps,
-    int MaxIterations);
-
-public sealed record StepDefinition(
-    string Id,
-    string Name,
-    StepKind Kind,              // Work | Review
-    string AgentName,
-    string PromptTemplatePath,
-    string OutputArtifactPath,
-    string? ReviewTargetStepId); // set only for Review steps
-```
+Encapsulates everything specific to a workflow type: the ordered phases, the steps
+within each phase (work vs. review, agent, prompt template, output artifact), the
+loop-termination policy per phase, and artifact-path resolution. The engine consumes
+this contract and has no knowledge of concrete phases or agents.
 
 `FeatureWorkflow` is the first concrete implementation, encoding the three phases and
-eleven steps described in [REQUIREMENTS.md §3.1](./REQUIREMENTS.md).
+eleven steps described in [REQUIREMENTS.md §3.1](./REQUIREMENTS.md). Concrete type
+shapes are in [detailed-design.md §2](./detailed-design.md).
 
 ### 4.5 Core — Agent invocation
 
-```csharp
-public interface IAgentRunner
-{
-    Task<AgentInvocationResult> InvokeAsync(AgentInvocation invocation, CancellationToken ct);
-}
-```
-
-`CopilotCliAgentRunner` spawns `copilot.exe`, writes the rendered prompt to stdin,
-captures stdout/stderr, waits for exit, and reports the exit code plus the HANDOUT block
-parsed from stdout (per requirements §6). Success is decided by the engine, not the
-runner: `exit == 0` **AND** artifact exists **AND** HANDOUT block present.
+`IAgentRunner` abstracts the process of invoking a named agent with a rendered prompt.
+`CopilotCliAgentRunner` is the v1 implementation: it spawns `copilot.exe`, writes the
+rendered prompt to stdin, captures stdout/stderr, and reports the exit code plus the
+HANDOUT block parsed from stdout. Success is decided by the engine, not the runner
+(`exit == 0` AND artifact exists AND HANDOUT present). Type shapes:
+[detailed-design.md §3](./detailed-design.md).
 
 ### 4.6 Core — Storage contract
 
-```csharp
-public interface IWorkflowStorage
-{
-    Task<WorkflowContext?> LoadAsync(string repositoryPath, CancellationToken ct);
-    Task SaveAsync(WorkflowContext context, CancellationToken ct);
-    Task<bool> ExistsAsync(string repositoryPath, CancellationToken ct);
-}
-```
-
-Only three operations are needed: load, save, and existence check. The engine never
-touches file paths directly — that is the storage implementation's concern.
+`IWorkflowStorage` exposes three operations — load, save, existence check — over the
+persisted `WorkflowContext`. The engine never touches file paths directly; that is the
+storage implementation's concern. Type shapes: [detailed-design.md §4](./detailed-design.md).
 
 ### 4.7 Storage — `JsonWorkflowStorage`
 
@@ -212,45 +141,22 @@ mid-write. Lives in `CodeFabric.Storage`, registered via AppBoot as
 
 ### 4.8 Core — Approval gate
 
-```csharp
-public interface IApprovalGate
-{
-    Task<ApprovalDecision> RequestApprovalAsync(
-        PhaseDefinition phase,
-        IReadOnlyList<StepHistoryEntry> phaseHistory,
-        CancellationToken ct);
-}
-```
-
-`ConsoleApprovalGate` is the v1 implementation (Y/N/A prompt per §9). Future agent-driven
-approval plugs in as another implementation — no engine changes needed.
+`IApprovalGate` is called by the engine at each phase boundary to obtain an
+approve/reject/abort decision. `ConsoleApprovalGate` is the v1 implementation (Y/N/A
+prompt per [REQUIREMENTS.md §9](./REQUIREMENTS.md)). Future agent-driven approval plugs
+in as another implementation — no engine changes needed. Type shapes:
+[detailed-design.md §5](./detailed-design.md).
 
 ---
 
 ## 5. Workflow state model
 
-`WorkflowContext` is the single persisted aggregate:
-
-```csharp
-public sealed record WorkflowContext
-{
-    public required string WorkflowId { get; init; }
-    public required string WorkflowType { get; init; }
-    public required string RepositoryPath { get; init; }
-    public required string FeatureDescription { get; init; }
-    public required string CurrentPhase { get; init; }
-    public required string CurrentStepId { get; init; }
-    public required int CurrentIteration { get; init; }
-    public required WorkflowStatus Status { get; init; }
-    public required DateTimeOffset StartedAt { get; init; }
-    public DateTimeOffset? CompletedAt { get; init; }
-    public required IReadOnlyList<StepHistoryEntry> History { get; init; }
-    public required IReadOnlyList<string> ApprovedPhases { get; init; }
-}
-```
-
-Persisted at every transition. On startup, if a context exists, the engine resumes from
-`CurrentPhase` / `CurrentStepId` (requirements §5).
+`WorkflowContext` is the single persisted aggregate. It captures the workflow identity,
+the feature description, the current phase/step/iteration, the overall status, the full
+step history, and the set of already-approved phases. It is persisted at every state
+transition. On startup, if a context exists, the engine resumes from the recorded
+current phase and step (per [REQUIREMENTS.md §5](./REQUIREMENTS.md)). Type shape:
+[detailed-design.md §6](./detailed-design.md).
 
 ---
 
