@@ -1,5 +1,5 @@
 <Solution>
   <Project Path="CodeFabric.Core/CodeFabric.Core.csproj" Id="1a2d1870-bddb-46a9-a5cf-47f03bac5460" />
   <Project Path="CodeFabric/CodeFabric.csproj" />
-  <Project Path="CodeFabric.Storage/CodeFabric.Storage.csproj" Id="b0035afe-b50b-40dd-8d5e-2f5425d3e143" />
+  <Project Path="CoreFabric.Storage/CodeFabric.Storage.csproj" />
 </Solution>

@@ -7,6 +7,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/Dotnet.gitignore
 
+# Visual Studio
+src/.vs/
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
@@ -41,6 +44,7 @@ ScaffoldingReadMe.txt
 *~
 CodeCoverage/
 
+
 # MSBuild Binary and Structured Log
 *.binlog
 
@@ -52,3 +56,4 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+

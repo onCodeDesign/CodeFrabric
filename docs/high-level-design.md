@@ -204,7 +204,91 @@ are injected into the next work-step prompt via the prompt renderer (requirement
 
 ---
 
-## 7. First workflow: `FeatureWorkflow`
+## 7. Git branching model
+
+Every workflow run is anchored in a dedicated branch topology. The engine drives all
+branch creation, checkouts, and merges deterministically — the agents only
+produce artifacts and commit their changes.
+
+### 7.1 Branch layout
+
+```
+main
+ └── feature/123-short-description                   (workflow instance branch)
+      ├── feature/design/#123-short-description       (phase branch, merged on approval)
+      ├── feature/implementation/#123-short-description
+      └── feature/test/#123-short-description
+```
+
+- **Workflow instance branch** — created from `main` (or the configured base branch) at
+  the start of a workflow run. Pattern: `feature/[#<issue>]-<short-description>`.
+  Lives for the lifetime of the workflow. All phase branches merge into it.
+- **Phase branch** — created from the workflow instance branch at the start of each
+  phase. Pattern: `feature/<phase-name>/[#<issue>]-<short-description>` (phase name
+  lower-cased, e.g. `design`, `implementation`, `test`). All step commits for that
+  phase land on this branch.
+
+The issue number and short description come from the `WorkflowRunRequest` inputs and are
+recorded in the `WorkflowContext` so the same names are reconstructed on resume.
+
+### 7.2 Commit granularity
+
+**Every step produces exactly one commit** on the current phase branch, created by the
+engine after a successful step (exit code 0 + artifact present + HANDOUT parsed).
+Commit messages follow a structured convention so the history is machine-readable:
+
+```
+<phase>/<step-id> (iter <n>): <step name>
+
+[agent] <agentName>
+[artifact] <relative artifact path>
+[workflow] <workflowId>
+```
+
+If a step is retried because of a review failure, each iteration produces its own commit
+— the history therefore contains the full iterative trail within a phase.
+
+### 7.3 Phase approval = merge
+
+When the human approves a phase at the phase gate:
+
+1. The engine checks out the workflow instance branch.
+2. It merges the phase branch with `git merge --no-ff <phase-branch>` so the merge
+   commit is always preserved, even when a fast-forward would be possible.
+3. The merge commit message explicitly records the approval, e.g.:
+
+   ```
+   HUMAN:Approve <phase> phase for [#123]-short-description
+
+   [workflow] <workflowId>
+   [phase] <phase-name>
+   [iterations] <n>
+   [remarks] <optional human remarks>
+   ```
+
+4. The merge commit SHA is recorded in `WorkflowContext.ApprovedPhases` so resume logic
+   knows the phase is locked and immutable (per [REQUIREMENTS.md §3.3](./REQUIREMENTS.md)).
+5. The next phase branch is created **from the updated workflow instance branch**, so
+   each phase builds on the approved state of the previous phases.
+
+If the human rejects a phase, no merge occurs; the phase branch stays active and the
+loop re-enters on it with the rejection remarks injected into the next work step
+prompt.
+
+### 7.4 Abstraction and scope
+
+- The engine interacts with git through a small `IGitWorkspace` abstraction in
+  `CodeFabric.Core`. The v1 implementation shells out to the `git` CLI. Concrete type
+  shapes are in [detailed-design.md](./detailed-design.md).
+- Merging the workflow instance branch back into `main` and any push / PR mechanics
+  are **out of scope for v1**. The workflow instance branch is simply left in place for
+  the human to handle.
+- The engine assumes a clean working tree at start-up; if the tree is dirty it fails
+  fast rather than committing unrelated changes.
+
+---
+
+## 8. First workflow: `FeatureWorkflow`
 
 `FeatureWorkflow` implements `IWorkflowDefinition` and encodes:
 
@@ -221,7 +305,7 @@ a CLI flag to select it.
 
 ---
 
-## 8. Configuration
+## 9. Configuration
 
 Configuration remains a JSON file at `<repo>/.orchestrator/config.json`
 (requirements §8). It is loaded by Core (not the CLI) through a small
@@ -234,7 +318,7 @@ config only tunes its behaviour.
 
 ---
 
-## 9. Extensibility roadmap
+## 10. Extensibility roadmap
 
 | Extension point          | Swap in…                                          |
 |--------------------------|---------------------------------------------------|
@@ -249,7 +333,7 @@ The engine itself is expected to remain unchanged across these extensions.
 
 ---
 
-## 10. Out of scope for this HLD
+## 11. Out of scope for this HLD
 
 - Detailed class diagrams and method signatures (deferred to detailed design).
 - Concrete prompt template contents.
