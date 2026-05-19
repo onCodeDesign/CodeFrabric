@@ -1,6 +1,8 @@
+using AppBoot.DependencyInjection;
 using CodeFabric.Core.Engine;
 using CodeFabric.Core.Engine.WorkflowDefinition;
 using CodeFabric.Core.State;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CodeFabric.Core.Definitions;
 
@@ -8,7 +10,8 @@ namespace CodeFabric.Core.Definitions;
 /// Workflow definition for the standard feature delivery lifecycle:
 /// Design → Implementation → Test.
 /// </summary>
-internal sealed class FeatureWorkflow : IWorkflowDefinition
+[Service(typeof(IWorkflowDefinition), ServiceLifetime.Singleton)]
+public sealed class FeatureWorkflow : IWorkflowDefinition
 {
     private const int DefaultMaxIterations = 3;
 
@@ -20,8 +23,13 @@ internal sealed class FeatureWorkflow : IWorkflowDefinition
 
     public LoopTerminationPolicy GetLoopPolicy(WorkReviewLoop loop) => s_loopPolicy;
 
-    public string ResolveArtifactPath(WorkflowContext context, StepDefinition step) =>
-        Path.Combine(context.RepositoryPath, ".orchestrator", step.OutputArtifactPath);
+    public string ResolveArtifactPath(WorkflowContext context, StepDefinition step)
+    {
+        string relativePath = step.OutputArtifactPath!
+            .Replace("{#id}", context.IssueNumber, StringComparison.Ordinal)
+            .Replace("{#iteration}", context.CurrentIteration.ToString(), StringComparison.Ordinal);
+        return Path.Combine(context.RepositoryPath, ".orchestrator", relativePath);
+    }
 
     private static IReadOnlyList<PhaseDefinition> BuildPhases() =>
     [

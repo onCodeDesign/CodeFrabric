@@ -18,6 +18,12 @@ public sealed record WorkflowContext
     /// <summary>Human-provided description of the feature being built.</summary>
     public required string FeatureDescription { get; init; }
 
+    /// <summary>GitHub issue number this workflow run is tied to.</summary>
+    public required string IssueNumber { get; init; }
+
+    /// <summary>Slugified issue title used in branch names, e.g. "add-user-auth".</summary>
+    public required string ShortDescription { get; init; }
+
     /// <summary>Name of the phase currently executing.</summary>
     public required string CurrentPhase { get; init; }
 
@@ -27,10 +33,13 @@ public sealed record WorkflowContext
     /// <summary>1-based iteration count within the current phase.</summary>
     public required int CurrentIteration { get; init; }
 
+    /// <summary>Overall status of the workflow run.</summary>
     public required WorkflowStatus Status { get; init; }
 
+    /// <summary>Timestamp when the workflow run started.</summary>
     public required DateTimeOffset StartedAt { get; init; }
 
+    /// <summary>Timestamp when the workflow run completed, if it has completed.</summary>
     public DateTimeOffset? CompletedAt { get; init; }
 
     /// <summary>Full ordered history of every completed step execution.</summary>
