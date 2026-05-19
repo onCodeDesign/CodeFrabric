@@ -1,6 +1,6 @@
 using CodeFabric.Core.State;
 
-namespace CodeFabric.Core.Engine;
+namespace CodeFabric.Core.Engine.WorkflowDefinition;
 
 /// <summary>
 /// Encapsulates everything specific to a workflow type: phases, steps,
@@ -17,10 +17,10 @@ public interface IWorkflowDefinition
     IReadOnlyList<PhaseDefinition> Phases { get; }
 
     /// <summary>
-    /// Returns the <see cref="LoopTerminationPolicy"/> that governs the
-    /// work-review loop for the given phase.
+    /// Returns the <see cref="LoopTerminationPolicy"/> that governs the given
+    /// work-review loop.
     /// </summary>
-    LoopTerminationPolicy GetLoopPolicy(PhaseDefinition phase);
+    LoopTerminationPolicy GetLoopPolicy(WorkReviewLoop loop);
 
     /// <summary>
     /// Resolves the full output artifact path for a step given the current

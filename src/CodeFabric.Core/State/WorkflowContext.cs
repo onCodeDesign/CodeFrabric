@@ -9,7 +9,7 @@ public sealed record WorkflowContext
     /// <summary>Unique run identifier, e.g. "feature-42-20250324-1430".</summary>
     public required string WorkflowId { get; init; }
 
-    /// <summary>Identifies the <see cref="Engine.IWorkflowDefinition"/> to use, e.g. "FeatureWorkflow".</summary>
+    /// <summary>Identifies the <see cref="Engine.WorkflowDefinition.IWorkflowDefinition"/> to use, e.g. "FeatureWorkflow".</summary>
     public required string WorkflowType { get; init; }
 
     /// <summary>Absolute path to the repository being orchestrated.</summary>

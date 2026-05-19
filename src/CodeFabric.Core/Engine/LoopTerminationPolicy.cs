@@ -1,3 +1,5 @@
+using CodeFabric.Core.Engine.WorkflowDefinition;
+
 namespace CodeFabric.Core.Engine;
 
 /// <summary>

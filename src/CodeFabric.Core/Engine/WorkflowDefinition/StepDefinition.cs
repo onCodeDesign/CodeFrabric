@@ -1,4 +1,4 @@
-namespace CodeFabric.Core.Engine;
+namespace CodeFabric.Core.Engine.WorkflowDefinition;
 
 /// <summary>
 /// Describes a single executable step within a phase.
@@ -15,9 +15,9 @@ public sealed record StepDefinition(
     /// <summary>Workspace-relative path to the Markdown prompt template.</summary>
     string PromptTemplatePath,
     /// <summary>Path relative to the repository root where the output artifact is written.</summary>
-    string OutputArtifactPath,
+    string? OutputArtifactPath,
     /// <summary>
     /// For <see cref="StepKind.Review"/> steps, the <see cref="StepDefinition.Id"/>
     /// of the work step whose artifact is being reviewed. <see langword="null"/> for work steps.
     /// </summary>
-    string? ReviewTargetStepId);
+    string? ReviewTargetStepId) : IPhaseStep;
