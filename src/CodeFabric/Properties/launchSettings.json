@@ -2,7 +2,7 @@
   "profiles": {
     "CodeFabric": {
       "commandName": "Project",
-      "commandLineArgs": "run --issue 1 --short-name orverdue-orders"
+      "commandLineArgs": "run --issue 1 --short-name orverdue-orders --new"
     }
   }
 }

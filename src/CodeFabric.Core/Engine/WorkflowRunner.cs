@@ -25,41 +25,50 @@ public sealed class WorkflowRunner(
             ?? throw new InvalidOperationException(
                 $"Unknown workflow type: '{request.WorkflowType}'.");
 
-        bool hasExisting = await storage.ExistsAsync(request.RepositoryPath, ct).ConfigureAwait(false);
-
         WorkflowContext context;
 
-        if (request.Resume && hasExisting)
+        if (request.Mode == WorkflowRunMode.Resume)
         {
-            context = (await storage.LoadAsync(request.RepositoryPath, ct).ConfigureAwait(false))
+            if (string.IsNullOrWhiteSpace(request.InstanceId))
+                throw new InvalidOperationException(
+                    "Resume requires an InstanceId identifying the workflow instance to resume.");
+
+            context = (await storage
+                    .LoadAsync(request.RepositoryPath, request.InstanceId, ct)
+                    .ConfigureAwait(false))
                 ?? throw new InvalidOperationException(
-                    "Resume requested but the stored context could not be loaded.");
+                    $"No workflow instance '{request.InstanceId}' found for issue '{request.IssueNumber}'.");
         }
         else
         {
-            if (hasExisting && !request.Resume)
+            IReadOnlyList<string> existing = await storage
+                .ListInstancesAsync(request.RepositoryPath, request.IssueNumber, ct)
+                .ConfigureAwait(false);
+
+            if (existing.Count > 0 && request.Mode == WorkflowRunMode.Start)
                 throw new InvalidOperationException(
-                    $"A workflow run already exists at '{request.RepositoryPath}'. " +
-                    "Use --resume to continue it.");
+                    $"Workflow instance(s) already exist for issue '{request.IssueNumber}': " +
+                    $"[{string.Join(", ", existing)}]. " +
+                    "Pass --resume <instanceId> to continue one, or --new to start an additional instance.");
 
             string workflowId =
-                $"feature-{request.IssueNumber}-{DateTimeOffset.UtcNow:yyyyMMdd-HHmm}";
+                $"feature-{request.IssueNumber}-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}";
 
             context = new WorkflowContext
             {
-                WorkflowId     = workflowId,
-                WorkflowType   = request.WorkflowType,
-                RepositoryPath = request.RepositoryPath,
-                IssueNumber    = request.IssueNumber,
-                IssueShortName = request.IssueShortName,
-                CurrentPhase   = definition.Phases[0].Name,
-                CurrentStepId     = string.Empty,
-                CurrentIteration  = 1,
-                Status            = WorkflowStatus.NotStarted,
-                StartedAt         = DateTimeOffset.UtcNow,
-                CompletedAt       = null,
-                History           = [],
-                ApprovedPhases    = [],
+                WorkflowId       = workflowId,
+                WorkflowType     = request.WorkflowType,
+                RepositoryPath   = request.RepositoryPath,
+                IssueNumber      = request.IssueNumber,
+                IssueShortName   = request.IssueShortName,
+                CurrentPhase     = definition.Phases[0].Name,
+                CurrentStepId    = string.Empty,
+                CurrentIteration = 1,
+                Status           = WorkflowStatus.NotStarted,
+                StartedAt        = DateTimeOffset.UtcNow,
+                CompletedAt      = null,
+                History          = [],
+                ApprovedPhases   = [],
             };
 
             await storage.SaveAsync(context, ct).ConfigureAwait(false);

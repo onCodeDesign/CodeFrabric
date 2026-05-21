@@ -319,10 +319,10 @@ internal sealed class WorkflowEngine(
     }
 
     private static string InstanceBranch(WorkflowContext ctx) =>
-        $"feature/[#{ctx.IssueNumber}]-{ctx.IssueShortName}";
+        $"feature/#{ctx.IssueNumber}-{ctx.IssueShortName}";
 
     private static string PhaseBranch(string phaseName, WorkflowContext ctx) =>
-        $"feature/{phaseName.ToLowerInvariant()}/[#{ctx.IssueNumber}]-{ctx.IssueShortName}";
+        $"feature//#{ctx.IssueNumber}-{ctx.IssueShortName}//{phaseName.ToLowerInvariant()}";
 }
 
 [JsonSerializable(typeof(ReviewVerdict))]

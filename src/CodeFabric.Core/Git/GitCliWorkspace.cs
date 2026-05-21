@@ -16,7 +16,7 @@ public sealed class GitCliWorkspace : IGitWorkspace
         string output = await RunGitAsync(repositoryPath, ["status", "--porcelain"], ct).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(output))
         {
-            throw new InvalidOperationException("Working tree has uncommitted changes. Please commit or stash before running CodeFabric.");
+            throw new InvalidOperationException("Working tree has uncommitted changes. Please commit or stash before running CodeFabric. We recommend using git worktree for isolated Agentic workflows.");
         }
     }
 

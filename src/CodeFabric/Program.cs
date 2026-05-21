@@ -12,8 +12,8 @@ Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
 // ── Argument parsing ──────────────────────────────────────────────────────────
 // Usage:
-//   codefabric run   --issue <n> [--repo <path>] [--workflow <type>]
-//   codefabric resume            [--repo <path>] [--workflow <type>]
+//   codefabric --issue <n> --short-name <slug> [--repo <path>] [--workflow <type>]
+//              [ --resume <instanceId> | --new ]
 
 string[] cliArgs = Environment.GetCommandLineArgs()[1..];
 
@@ -23,43 +23,44 @@ if (cliArgs.Length == 0 || cliArgs[0] is "-h" or "--help")
     return 0;
 }
 
-string command = cliArgs[0].ToLowerInvariant();
-if (command is not ("run" or "resume"))
-{
-    Console.Error.WriteLine($"Unknown command '{cliArgs[0]}'. Expected 'run' or 'resume'.");
-    PrintUsage();
-    return 2;
-}
-
-string? issueNumber  = GetFlag(cliArgs, "--issue");
+string? issueNumber    = GetFlag(cliArgs, "--issue");
 string? issueShortName = GetFlag(cliArgs, "--short-name");
-string repoPath     = GetFlag(cliArgs, "--repo") ?? @"../";
-string  workflowType = GetFlag(cliArgs, "--workflow") ?? "FeatureWorkflow";
+string  repoPath       = GetFlag(cliArgs, "--repo") ?? @"../";
+string  workflowType   = GetFlag(cliArgs, "--workflow") ?? "FeatureWorkflow";
+string? resumeId       = GetFlag(cliArgs, "--resume");
+bool    newFlag        = HasFlag(cliArgs, "--new");
 
-if (repoPath is null)
+if (issueNumber is null)
 {
-    Console.Error.WriteLine("--repo <path> is required.");
+    Console.Error.WriteLine("--issue <n> is required.");
     return 2;
 }
 
-if (command == "run" && issueNumber is null)
+if (resumeId is not null && newFlag)
 {
-    Console.Error.WriteLine("--issue <n> is required for the 'run' command.");
+    Console.Error.WriteLine("--resume and --new are mutually exclusive.");
     return 2;
 }
 
-if (command == "run" && string.IsNullOrWhiteSpace(issueShortName))
+WorkflowRunMode mode = resumeId is not null
+    ? WorkflowRunMode.Resume
+    : newFlag
+        ? WorkflowRunMode.New
+        : WorkflowRunMode.Start;
+
+if (mode != WorkflowRunMode.Resume && string.IsNullOrWhiteSpace(issueShortName))
 {
-    Console.Error.WriteLine("--short-name <slug> is required for the 'run' command.");
+    Console.Error.WriteLine("--short-name <slug> is required when starting a new instance.");
     return 2;
 }
 
 WorkflowRunRequest request = new(
     WorkflowType:   workflowType,
     RepositoryPath: Path.GetFullPath(repoPath),
-    IssueNumber:    issueNumber ?? string.Empty,
+    IssueNumber:    issueNumber,
     IssueShortName: issueShortName ?? string.Empty,
-    Resume:         command == "resume");
+    Mode:           mode,
+    InstanceId:     resumeId);
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 IBootstrapper bootstrapper = null!;
@@ -115,19 +116,29 @@ static string? GetFlag(string[] args, string flag)
     return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 }
 
+static bool HasFlag(string[] args, string flag) => Array.IndexOf(args, flag) >= 0;
+
 static void PrintUsage()
 {
     Console.WriteLine("""
         CodeFabric — AI workflow orchestrator
 
         Usage:
-          codefabric run    --issue <n> --short-name <slug> --repo <path> [--workflow <type>]
-          codefabric resume             --repo <path> [--workflow <type>]
+          codefabric --issue <n> --short-name <slug> [--repo <path>] [--workflow <type>]
+          codefabric --issue <n> --resume <instanceId> [--repo <path>] [--workflow <type>]
+          codefabric --issue <n> --short-name <slug> --new [--repo <path>] [--workflow <type>]
 
         Options:
-          --issue <n>        GitHub issue number (required for 'run')
-          --short-name <s>   Slug for branch names, e.g. "add-user-auth" (required for 'run')
-          --repo  <path>     Path to the local repository
-          --workflow <type>  Workflow type (default: FeatureWorkflow)
+          --issue <n>          GitHub issue number (required)
+          --short-name <s>     Slug for branch names, e.g. "add-user-auth" (required unless --resume)
+          --resume <id>        Resume the workflow instance with the given id
+          --new                Start an additional instance for an issue that already has one
+          --repo <path>        Path to the local repository (default: ../)
+          --workflow <type>    Workflow type (default: FeatureWorkflow)
+
+        Behavior:
+          Without --resume or --new, the tool fails if any workflow instance already
+          exists for the given issue. Use --resume <id> to continue an existing one,
+          or --new to start an additional instance alongside it.
         """);
 }

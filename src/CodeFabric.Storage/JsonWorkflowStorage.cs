@@ -15,18 +15,30 @@ namespace CodeFabric.Storage;
 [Service(typeof(IWorkflowStorage), ServiceLifetime.Singleton)]
 public sealed class JsonWorkflowStorage : IWorkflowStorage
 {
-    private static string ContextFilePath(string repositoryPath) =>
-        Path.Combine(repositoryPath, ".workflow", "context.json");
+    private static string IssueDirectory(string repositoryPath, string issueNumber) =>
+        Path.Combine(repositoryPath, ".workflow", issueNumber);
+
+    private static string InstanceFilePath(string repositoryPath, string issueNumber, string instanceId) =>
+        Path.Combine(IssueDirectory(repositoryPath, issueNumber), instanceId + ".json");
 
     /// <inheritdoc />
-    public async Task<WorkflowContext?> LoadAsync(string repositoryPath, CancellationToken ct)
+    public async Task<WorkflowContext?> LoadAsync(
+        string repositoryPath, string instanceId, CancellationToken ct)
     {
-        string path = ContextFilePath(repositoryPath);
-        if (!File.Exists(path))
+        // The instance lives under one of the issue subdirectories — locate the file by name.
+        string root = Path.Combine(repositoryPath, ".workflow");
+        if (!Directory.Exists(root))
+            return null;
+
+        string? match = Directory
+            .EnumerateFiles(root, instanceId + ".json", SearchOption.AllDirectories)
+            .FirstOrDefault();
+
+        if (match is null)
             return null;
 
         await using FileStream stream = new(
-            path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, useAsync: true);
+            match, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, useAsync: true);
 
         return await JsonSerializer
             .DeserializeAsync(stream, WorkflowContextJsonContext.Default.WorkflowContext, ct)
@@ -36,7 +48,7 @@ public sealed class JsonWorkflowStorage : IWorkflowStorage
     /// <inheritdoc />
     public async Task SaveAsync(WorkflowContext context, CancellationToken ct)
     {
-        string targetPath = ContextFilePath(context.RepositoryPath);
+        string targetPath = InstanceFilePath(context.RepositoryPath, context.IssueNumber, context.WorkflowId);
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
 
         string tempPath = targetPath + ".tmp";
@@ -54,8 +66,22 @@ public sealed class JsonWorkflowStorage : IWorkflowStorage
     }
 
     /// <inheritdoc />
-    public Task<bool> ExistsAsync(string repositoryPath, CancellationToken ct) =>
-        Task.FromResult(File.Exists(ContextFilePath(repositoryPath)));
+    public Task<IReadOnlyList<string>> ListInstancesAsync(
+        string repositoryPath, string issueNumber, CancellationToken ct)
+    {
+        string dir = IssueDirectory(repositoryPath, issueNumber);
+        if (!Directory.Exists(dir))
+            return Task.FromResult<IReadOnlyList<string>>([]);
+
+        IReadOnlyList<string> ids = Directory
+            .EnumerateFiles(dir, "*.json", SearchOption.TopDirectoryOnly)
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Select(s => s!)
+            .ToList();
+
+        return Task.FromResult(ids);
+    }
 }
 
 [JsonSerializable(typeof(WorkflowContext))]

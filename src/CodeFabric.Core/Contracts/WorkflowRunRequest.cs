@@ -10,5 +10,7 @@ public sealed record WorkflowRunRequest(
     string IssueNumber,
     /// <summary>Short, slug-friendly name for the issue used in branch names, e.g. "add-user-auth".</summary>
     string IssueShortName,
-    /// <summary>When true, resumes an existing run rather than starting fresh.</summary>
-    bool Resume);
+    /// <summary>How the run should be initiated: fresh start, resume, or new-alongside-existing.</summary>
+    WorkflowRunMode Mode,
+    /// <summary>Required when <see cref="Mode"/> is <see cref="WorkflowRunMode.Resume"/>; ignored otherwise.</summary>
+    string? InstanceId = null);
