@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CodeFabric": {
+      "commandName": "Project",
+      "commandLineArgs": "run --issue 1"
+    }
+  }
+}

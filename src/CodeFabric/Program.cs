@@ -1,38 +1,19 @@
-using CodeFabric.Core.Agents;
-using CodeFabric.Core.Approval;
+using AppBoot;
+using AppBoot.AssemblyLoad;
+using AppBoot.DependencyInjection;
 using CodeFabric.Core.Contracts;
-using CodeFabric.Core.Definitions;
-using CodeFabric.Core.Engine;
-using CodeFabric.Core.Engine.WorkflowDefinition;
-using CodeFabric.Core.Git;
-using CodeFabric.Core.GitHub;
-using CodeFabric.Core.Prompts;
 using CodeFabric.Core.State;
-using CodeFabric.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 // ── Cancellation ──────────────────────────────────────────────────────────────
 using CancellationTokenSource cts = new();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
-// ── DI container ─────────────────────────────────────────────────────────────
-// TODO: Replace with AppBoot-bootstrapped registration once configured.
-ServiceCollection services = new();
-services.AddSingleton<IWorkflowStorage, JsonWorkflowStorage>();
-services.AddSingleton<IWorkflowDefinition, FeatureWorkflow>();
-services.AddTransient<IAgentRunner, CopilotCliAgentRunner>();
-services.AddTransient<IApprovalGate, ConsoleApprovalGate>();
-services.AddTransient<IGitWorkspace, GitCliWorkspace>();
-services.AddTransient<IPromptRenderer, TemplatePromptRenderer>();
-services.AddTransient<IGitHubService, GitHubCliService>();
-services.AddTransient<IWorkflowRunner, WorkflowRunner>();
-
-await using ServiceProvider sp = services.BuildServiceProvider();
-
 // ── Argument parsing ──────────────────────────────────────────────────────────
 // Usage:
-//   codefabric run   --issue <n> --repo <path> [--workflow <type>]
-//   codefabric resume            --repo <path> [--workflow <type>]
+//   codefabric run   --issue <n> [--repo <path>] [--workflow <type>]
+//   codefabric resume            [--repo <path>] [--workflow <type>]
 
 string[] cliArgs = Environment.GetCommandLineArgs()[1..];
 
@@ -51,7 +32,7 @@ if (command is not ("run" or "resume"))
 }
 
 string? issueNumber  = GetFlag(cliArgs, "--issue");
-string? repoPath     = GetFlag(cliArgs, "--repo");
+string repoPath     = GetFlag(cliArgs, "--repo") ?? @"../";
 string  workflowType = GetFlag(cliArgs, "--workflow") ?? "FeatureWorkflow";
 
 if (repoPath is null)
@@ -72,8 +53,28 @@ WorkflowRunRequest request = new(
     IssueNumber:    issueNumber ?? string.Empty,
     Resume:         command == "resume");
 
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+IBootstrapper bootstrapper = null!;
+
+IHost host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices(services =>
+    {
+        bootstrapper = services
+            .AddAppBoot(options =>
+            {
+                options.NameFilter = assembly => assembly.StartsWith("CodeFabric");
+               options.PluginPathBuilderOption = PluginPathBuilderOption.SameRootBinDebug;
+               options.AddPlugin("CodeFabric.Storage");
+
+            })
+            .AddRegistrationBehavior(new ServiceRegistrationBehavior())
+            .Run();
+    })
+    .Build()
+    .InitHostedApp(bootstrapper);
+
 // ── Execute ───────────────────────────────────────────────────────────────────
-IWorkflowRunner runner = sp.GetRequiredService<IWorkflowRunner>();
+IWorkflowRunner runner =  host.Services.GetRequiredService<IWorkflowRunner>();
 
 try
 {

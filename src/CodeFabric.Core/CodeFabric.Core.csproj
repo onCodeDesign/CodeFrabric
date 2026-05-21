@@ -9,6 +9,7 @@
   <ItemGroup>
     <Reference Include="AppBoot">
       <HintPath>..\lib\AppBoot\AppBoot.dll</HintPath>
+			<Private>false</Private>
     </Reference>
   </ItemGroup>
 
