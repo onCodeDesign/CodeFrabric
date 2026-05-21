@@ -18,6 +18,9 @@ public sealed record WorkflowContext
     /// <summary>GitHub issue number this workflow run is tied to.</summary>
     public required string IssueNumber { get; init; }
 
+    /// <summary>Short, slug-friendly name for the issue used in branch names.</summary>
+    public required string IssueShortName { get; init; }
+
     /// <summary>Name of the phase currently executing.</summary>
     public required string CurrentPhase { get; init; }
 

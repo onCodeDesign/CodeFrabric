@@ -8,5 +8,7 @@ public sealed record WorkflowRunRequest(
     string RepositoryPath,
     /// <summary>GitHub issue number. The engine fetches description + title from GitHub.</summary>
     string IssueNumber,
+    /// <summary>Short, slug-friendly name for the issue used in branch names, e.g. "add-user-auth".</summary>
+    string IssueShortName,
     /// <summary>When true, resumes an existing run rather than starting fresh.</summary>
     bool Resume);

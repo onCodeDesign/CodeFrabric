@@ -51,6 +51,7 @@ public sealed class WorkflowRunner(
                 WorkflowType   = request.WorkflowType,
                 RepositoryPath = request.RepositoryPath,
                 IssueNumber    = request.IssueNumber,
+                IssueShortName = request.IssueShortName,
                 CurrentPhase   = definition.Phases[0].Name,
                 CurrentStepId     = string.Empty,
                 CurrentIteration  = 1,

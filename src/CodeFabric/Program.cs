@@ -32,6 +32,7 @@ if (command is not ("run" or "resume"))
 }
 
 string? issueNumber  = GetFlag(cliArgs, "--issue");
+string? issueShortName = GetFlag(cliArgs, "--short-name");
 string repoPath     = GetFlag(cliArgs, "--repo") ?? @"../";
 string  workflowType = GetFlag(cliArgs, "--workflow") ?? "FeatureWorkflow";
 
@@ -47,10 +48,17 @@ if (command == "run" && issueNumber is null)
     return 2;
 }
 
+if (command == "run" && string.IsNullOrWhiteSpace(issueShortName))
+{
+    Console.Error.WriteLine("--short-name <slug> is required for the 'run' command.");
+    return 2;
+}
+
 WorkflowRunRequest request = new(
     WorkflowType:   workflowType,
     RepositoryPath: Path.GetFullPath(repoPath),
     IssueNumber:    issueNumber ?? string.Empty,
+    IssueShortName: issueShortName ?? string.Empty,
     Resume:         command == "resume");
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
@@ -113,12 +121,13 @@ static void PrintUsage()
         CodeFabric — AI workflow orchestrator
 
         Usage:
-          codefabric run    --issue <n> --repo <path> [--workflow <type>]
+          codefabric run    --issue <n> --short-name <slug> --repo <path> [--workflow <type>]
           codefabric resume             --repo <path> [--workflow <type>]
 
         Options:
-          --issue <n>       GitHub issue number (required for 'run')
-          --repo  <path>    Path to the local repository
-          --workflow <type> Workflow type (default: FeatureWorkflow)
+          --issue <n>        GitHub issue number (required for 'run')
+          --short-name <s>   Slug for branch names, e.g. "add-user-auth" (required for 'run')
+          --repo  <path>     Path to the local repository
+          --workflow <type>  Workflow type (default: FeatureWorkflow)
         """);
 }
