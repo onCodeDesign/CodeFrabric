@@ -1,11 +1,13 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AppBoot.DependencyInjection;
 using CodeFabric.Core.Agents;
 using CodeFabric.Core.Approval;
 using CodeFabric.Core.Engine.WorkflowDefinition;
 using CodeFabric.Core.Git;
 using CodeFabric.Core.Prompts;
 using CodeFabric.Core.State;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace CodeFabric.Core.Engine;
 
@@ -13,12 +15,13 @@ namespace CodeFabric.Core.Engine;
 /// Drives workflow execution for any <see cref="IWorkflowDefinition"/>.
 /// The engine is generic — it has no knowledge of concrete phase names, agents, or ordering.
 /// </summary>
+[Service(typeof(IWorkflowEngine), ServiceLifetime.Transient)]
 internal sealed class WorkflowEngine(
     IAgentRunner agentRunner,
     IApprovalGate approvalGate,
     IGitWorkspace gitWorkspace,
     IPromptRenderer promptRenderer,
-    IWorkflowStorage storage)
+    IWorkflowStorage storage) : IWorkflowEngine
 {
     /// <summary>Advances a workflow context to completion or until aborted.</summary>
     public async Task<WorkflowContext> ExecuteAsync(
@@ -242,11 +245,10 @@ internal sealed class WorkflowEngine(
         WorkflowContext context, int iteration, string? rejectionRemarks) =>
         new Dictionary<string, string>
         {
-            ["featureDescription"] = context.FeatureDescription,
-            ["issueNumber"]        = context.IssueNumber,
-            ["phaseName"]          = context.CurrentPhase,
-            ["iteration"]          = iteration.ToString(),
-            ["rejectionRemarks"]   = rejectionRemarks ?? string.Empty,
+            ["issueNumber"]      = context.IssueNumber,
+            ["phaseName"]        = context.CurrentPhase,
+            ["iteration"]        = iteration.ToString(),
+            ["rejectionRemarks"] = rejectionRemarks ?? string.Empty,
         };
 
     private static IReadOnlyDictionary<string, string> BuildReviewVariables(
@@ -255,10 +257,9 @@ internal sealed class WorkflowEngine(
         string workArtifactPath = ResolveLinkedArtifact(context, step.ReviewTargetStepId!, phaseName);
         return new Dictionary<string, string>
         {
-            ["featureDescription"] = context.FeatureDescription,
-            ["issueNumber"]        = context.IssueNumber,
-            ["phaseName"]          = phaseName,
-            ["workArtifactPath"]   = workArtifactPath,
+            ["issueNumber"]      = context.IssueNumber,
+            ["phaseName"]        = phaseName,
+            ["workArtifactPath"] = workArtifactPath,
         };
     }
 
@@ -279,13 +280,12 @@ internal sealed class WorkflowEngine(
 
         return new Dictionary<string, string>
         {
-            ["featureDescription"]   = context.FeatureDescription,
-            ["issueNumber"]          = context.IssueNumber,
-            ["phaseName"]            = phaseName,
-            ["reviewArtifactPath"]   = reviewArtifactPath,
+            ["issueNumber"]           = context.IssueNumber,
+            ["phaseName"]             = phaseName,
+            ["reviewArtifactPath"]    = reviewArtifactPath,
             ["reviewArtifactContent"] = reviewContent,
-            ["workArtifactPath"]     = workArtifactPath,
-            ["remarks"]              = reviewContent,
+            ["workArtifactPath"]      = workArtifactPath,
+            ["remarks"]               = reviewContent,
         };
     }
 
@@ -319,10 +319,10 @@ internal sealed class WorkflowEngine(
     }
 
     private static string InstanceBranch(WorkflowContext ctx) =>
-        $"feature/[#{ctx.IssueNumber}]-{ctx.ShortDescription}";
+        $"feature/[#{ctx.IssueNumber}]";
 
     private static string PhaseBranch(string phaseName, WorkflowContext ctx) =>
-        $"feature/{phaseName.ToLowerInvariant()}/[#{ctx.IssueNumber}]-{ctx.ShortDescription}";
+        $"feature/{phaseName.ToLowerInvariant()}/[#{ctx.IssueNumber}]";
 }
 
 [JsonSerializable(typeof(ReviewVerdict))]

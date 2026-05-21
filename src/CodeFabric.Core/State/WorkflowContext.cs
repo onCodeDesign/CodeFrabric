@@ -15,14 +15,8 @@ public sealed record WorkflowContext
     /// <summary>Absolute path to the repository being orchestrated.</summary>
     public required string RepositoryPath { get; init; }
 
-    /// <summary>Human-provided description of the feature being built.</summary>
-    public required string FeatureDescription { get; init; }
-
     /// <summary>GitHub issue number this workflow run is tied to.</summary>
     public required string IssueNumber { get; init; }
-
-    /// <summary>Slugified issue title used in branch names, e.g. "add-user-auth".</summary>
-    public required string ShortDescription { get; init; }
 
     /// <summary>Name of the phase currently executing.</summary>
     public required string CurrentPhase { get; init; }

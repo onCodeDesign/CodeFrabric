@@ -7,7 +7,6 @@ namespace CodeFabric.Core.Prompts;
 /// <remarks>
 /// Well-known variable names supplied by the engine:
 /// <list type="bullet">
-///   <item><c>{{featureDescription}}</c> — the GitHub issue body.</item>
 ///   <item><c>{{issueNumber}}</c> — the GitHub issue number.</item>
 ///   <item><c>{{phaseName}}</c> — the name of the current phase.</item>
 ///   <item><c>{{iteration}}</c> — the 1-based iteration counter within the current loop.</item>

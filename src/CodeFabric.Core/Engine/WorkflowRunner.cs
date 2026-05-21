@@ -1,11 +1,6 @@
 using AppBoot.DependencyInjection;
-using CodeFabric.Core.Agents;
-using CodeFabric.Core.Approval;
 using CodeFabric.Core.Contracts;
 using CodeFabric.Core.Engine.WorkflowDefinition;
-using CodeFabric.Core.Git;
-using CodeFabric.Core.GitHub;
-using CodeFabric.Core.Prompts;
 using CodeFabric.Core.State;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -18,13 +13,9 @@ namespace CodeFabric.Core.Engine;
 /// </summary>
 [Service(typeof(IWorkflowRunner), ServiceLifetime.Transient)]
 public sealed class WorkflowRunner(
+    IServiceProvider serviceProvider,
     IWorkflowStorage storage,
-    IGitHubService gitHubService,
-    IEnumerable<IWorkflowDefinition> definitions,
-    IAgentRunner agentRunner,
-    IApprovalGate approvalGate,
-    IGitWorkspace gitWorkspace,
-    IPromptRenderer promptRenderer) : IWorkflowRunner
+    IEnumerable<IWorkflowDefinition> definitions) : IWorkflowRunner
 {
     /// <inheritdoc />
     public async Task<WorkflowRunResult> RunAsync(WorkflowRunRequest request, CancellationToken ct)
@@ -51,23 +42,16 @@ public sealed class WorkflowRunner(
                     $"A workflow run already exists at '{request.RepositoryPath}'. " +
                     "Use --resume to continue it.");
 
-            GitHubIssue issue = await gitHubService
-                .FetchIssueAsync(request.RepositoryPath, request.IssueNumber, ct)
-                .ConfigureAwait(false);
-
-            string shortDescription = GitHubCliService.SlugifyTitle(issue.Title);
             string workflowId =
                 $"feature-{request.IssueNumber}-{DateTimeOffset.UtcNow:yyyyMMdd-HHmm}";
 
             context = new WorkflowContext
             {
-                WorkflowId        = workflowId,
-                WorkflowType      = request.WorkflowType,
-                RepositoryPath    = request.RepositoryPath,
-                FeatureDescription = issue.Body,
-                IssueNumber       = request.IssueNumber,
-                ShortDescription  = shortDescription,
-                CurrentPhase      = definition.Phases[0].Name,
+                WorkflowId     = workflowId,
+                WorkflowType   = request.WorkflowType,
+                RepositoryPath = request.RepositoryPath,
+                IssueNumber    = request.IssueNumber,
+                CurrentPhase   = definition.Phases[0].Name,
                 CurrentStepId     = string.Empty,
                 CurrentIteration  = 1,
                 Status            = WorkflowStatus.NotStarted,
@@ -80,7 +64,7 @@ public sealed class WorkflowRunner(
             await storage.SaveAsync(context, ct).ConfigureAwait(false);
         }
 
-        WorkflowEngine engine = new(agentRunner, approvalGate, gitWorkspace, promptRenderer, storage);
+        IWorkflowEngine engine = serviceProvider.GetRequiredService<IWorkflowEngine>();
         WorkflowContext final = await engine.ExecuteAsync(context, definition, ct).ConfigureAwait(false);
 
         return new WorkflowRunResult(
