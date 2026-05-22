@@ -28,7 +28,7 @@ public sealed class FeatureWorkflow : IWorkflowDefinition
         string relativePath = step.OutputArtifactPath!
             .Replace("{#id}", context.IssueNumber, StringComparison.Ordinal)
             .Replace("{#iteration}", context.CurrentIteration.ToString(), StringComparison.Ordinal);
-        return Path.Combine(context.RepositoryPath, ".orchestrator", relativePath);
+        return Path.Combine(context.RepositoryPath, ".cFabric", "orchestrator", relativePath);
     }
 
     private static IReadOnlyList<PhaseDefinition> BuildPhases() =>

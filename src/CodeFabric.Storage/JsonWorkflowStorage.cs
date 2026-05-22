@@ -8,7 +8,7 @@ namespace CodeFabric.Storage;
 
 /// <summary>
 /// Persists <see cref="WorkflowContext"/> as indented JSON under
-/// <c>{repositoryPath}/.workflow/context.json</c>.
+/// <c>{repositoryPath}/.cFabric/workflow/{issueNumber}/{instanceId}.json</c>.
 /// Writes atomically via a temporary file followed by rename to prevent
 /// corrupt state on crash or cancellation.
 /// </summary>
@@ -16,7 +16,7 @@ namespace CodeFabric.Storage;
 public sealed class JsonWorkflowStorage : IWorkflowStorage
 {
     private static string IssueDirectory(string repositoryPath, string issueNumber) =>
-        Path.Combine(repositoryPath, ".workflow", issueNumber);
+        Path.Combine(repositoryPath, ".cFabric", "workflow", issueNumber);
 
     private static string InstanceFilePath(string repositoryPath, string issueNumber, string instanceId) =>
         Path.Combine(IssueDirectory(repositoryPath, issueNumber), instanceId + ".json");
@@ -26,7 +26,7 @@ public sealed class JsonWorkflowStorage : IWorkflowStorage
         string repositoryPath, string instanceId, CancellationToken ct)
     {
         // The instance lives under one of the issue subdirectories — locate the file by name.
-        string root = Path.Combine(repositoryPath, ".workflow");
+        string root = Path.Combine(repositoryPath, ".cFabric", "workflow");
         if (!Directory.Exists(root))
             return null;
 
