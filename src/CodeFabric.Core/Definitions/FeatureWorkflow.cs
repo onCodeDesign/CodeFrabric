@@ -45,30 +45,14 @@ public sealed class FeatureWorkflow : IWorkflowDefinition
                             PromptTemplatePath: "prompts/feature/design/high-level-design.md",
                             OutputArtifactPath: "docs/workitems/{#id}-design.md",
                             ReviewTargetStepId: null),
-                new WorkReviewLoop(
-                   Id: "HighLevelDesignReviewLoop",
-                   Name: "High Level Design",
-                    Steps:
-                    [
-                        new StepDefinition(
+                new StepDefinition(
                             Id: "ReviewHighLevelDesign",
                             Name: "Review High Level Design",
-                            Kind: StepKind.Review,
-                            AgentName: "architect",
-                            PromptTemplatePath: "prompts/feature/design/review-high-level-design.md",
-                            OutputArtifactPath: "workingSpace/workitems/{#id}-hld-review.md",
-                            ReviewTargetStepId: "HighLevelDesign"),
-                       new StepDefinition(
-                          Id: "ImproveHighLevelDesign",
-                            Name: "Improve High Level Design",
                             Kind: StepKind.Improve,
                             AgentName: "architect",
-                            PromptTemplatePath: "prompts/feature/design/improve-high-level-design.md",
+                            PromptTemplatePath: "prompts/feature/design/review-high-level-design.md",
                             OutputArtifactPath: "docs/workitems/{#id}-design.md",
-                            ReviewTargetStepId: "ReviewHighLevelDesign"),
-                    ],
-                    MaxIterations: DefaultMaxIterations),
-
+                            ReviewTargetStepId: "HighLevelDesign"),
                 new StepDefinition(
                             Id: "DetailedDesign",
                             Name: "Detailed Design",
@@ -94,7 +78,7 @@ public sealed class FeatureWorkflow : IWorkflowDefinition
                         new StepDefinition(
                               Id: "ImproveDetailedDesign",
                               Name: "Improve Detailed Design",
-                              Kind: StepKind.Improve,
+                              Kind: StepKind.ProcessReview,
                               AgentName: "detailed-designer",
                               PromptTemplatePath: "prompts/feature/design/improve-detailed-design.md",
                               OutputArtifactPath: "docs/workitems/{#id}-detailed-design.md",
@@ -104,7 +88,7 @@ public sealed class FeatureWorkflow : IWorkflowDefinition
             ]),
 
         new PhaseDefinition(
-            Name: "Implementation",
+            Name: "Implement",
             Steps:
             [
                new StepDefinition(
@@ -126,8 +110,8 @@ public sealed class FeatureWorkflow : IWorkflowDefinition
                             ReviewTargetStepId: null),
 
                 new WorkReviewLoop(
-                     Id: "ImplementationLoop",
-                    Name: "Implementation",
+                     Id: "ImplementationReviewLoop",
+                    Name: "Implementation Review Loop",
                     Steps:
                     [
                        new StepDefinition(
@@ -141,7 +125,7 @@ public sealed class FeatureWorkflow : IWorkflowDefinition
                        new StepDefinition(
                             Id: "ImproveCode",
                             Name: "Improve Code",
-                            Kind: StepKind.Improve,
+                            Kind: StepKind.ProcessReview,
                             AgentName: "coder",
                             PromptTemplatePath: "prompts/feature/implementation/improve-code.md",
                             OutputArtifactPath: null,

@@ -9,7 +9,11 @@ public enum StepKind
     /// <summary>Evaluates a prior artifact and returns a structured review verdict.</summary>
     Review,
 
-   /// <summary>Evaluate a review document and improves the output based on it</summary> 
-   Improve,
+   /// <summary>Processes a review document and updates the output based on it.</summary>
+   ProcessReview,
 
+    /// <summary>Evaluate a review document and improves the output based on it</summary> 
+   Improve
+
+   
 }
