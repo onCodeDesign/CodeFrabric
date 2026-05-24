@@ -318,11 +318,14 @@ internal sealed class WorkflowEngine(
         throw new InvalidOperationException($"Step '{stepId}' not found in workflow definition.");
     }
 
+    private static string InstanceBranchRoot(WorkflowContext ctx) =>
+        $"cFabric-{ctx.ShortId}/feature/#{ctx.IssueNumber}-{ctx.IssueShortName}";
+
     private static string InstanceBranch(WorkflowContext ctx) =>
-        $"feature/#{ctx.IssueNumber}-{ctx.IssueShortName}";
+        $"{InstanceBranchRoot(ctx)}/main";
 
     private static string PhaseBranch(string phaseName, WorkflowContext ctx) =>
-        $"feature//#{ctx.IssueNumber}-{ctx.IssueShortName}//{phaseName.ToLowerInvariant()}";
+        $"{InstanceBranchRoot(ctx)}/{phaseName.ToLowerInvariant()}";
 }
 
 [JsonSerializable(typeof(ReviewVerdict))]

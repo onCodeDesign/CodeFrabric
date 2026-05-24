@@ -54,6 +54,8 @@ public sealed class WorkflowRunner(
             string workflowId =
                 $"feature-{request.IssueNumber}-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}";
 
+            string shortId = ShortIdGenerator.Compute(request.IssueNumber, workflowId);
+
             context = new WorkflowContext
             {
                 WorkflowId       = workflowId,
@@ -61,6 +63,7 @@ public sealed class WorkflowRunner(
                 RepositoryPath   = request.RepositoryPath,
                 IssueNumber      = request.IssueNumber,
                 IssueShortName   = request.IssueShortName,
+                ShortId          = shortId,
                 CurrentPhase     = definition.Phases[0].Name,
                 CurrentStepId    = string.Empty,
                 CurrentIteration = 1,
@@ -79,6 +82,7 @@ public sealed class WorkflowRunner(
 
         return new WorkflowRunResult(
             final.WorkflowId,
+            final.ShortId,
             final.Status,
             final.CurrentPhase,
             final.CurrentStepId,

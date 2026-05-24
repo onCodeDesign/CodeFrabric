@@ -21,6 +21,13 @@ public sealed record WorkflowContext
     /// <summary>Short, slug-friendly name for the issue used in branch names.</summary>
     public required string IssueShortName { get; init; }
 
+    /// <summary>
+    /// Deterministic 6-character identifier derived from <see cref="IssueNumber"/> and
+    /// <see cref="WorkflowId"/>. Used as the branch-namespace root so that all git branches
+    /// for this instance share the prefix <c>cFabric-{ShortId}/</c>.
+    /// </summary>
+    public required string ShortId { get; init; }
+
     /// <summary>Name of the phase currently executing.</summary>
     public required string CurrentPhase { get; init; }
 

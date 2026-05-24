@@ -6,6 +6,8 @@ namespace CodeFabric.Core.Contracts;
 public sealed record WorkflowRunResult(
     /// <summary>Unique identifier for the workflow run.</summary>
     string WorkflowId,
+    /// <summary>6-character short instance ID, usable as branch-namespace root.</summary>
+    string ShortId,
     /// <summary>Overall status of the workflow run.</summary>
     WorkflowStatus Status,
     /// <summary>Name of the phase currently in progress, if any.</summary>

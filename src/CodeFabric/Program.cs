@@ -89,7 +89,8 @@ try
 {
     WorkflowRunResult result = await runner.RunAsync(request, cts.Token);
 
-    Console.WriteLine($"Workflow {result.WorkflowId} finished with status: {result.Status}");
+    Console.WriteLine($"[CodeFabric] instance : {result.WorkflowId}  (short-id: {result.ShortId})");
+    Console.WriteLine($"[CodeFabric] status   : {result.Status}");
 
     return result.Status switch
     {
