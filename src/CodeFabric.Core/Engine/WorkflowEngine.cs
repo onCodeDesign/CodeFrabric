@@ -88,7 +88,7 @@ internal sealed class WorkflowEngine(
                     case StepDefinition oneShot:
                         (context, _) = await ExecuteStepAsync(
                             context, oneShot, phase.Name, iteration: 1,
-                            rejectionRemarks, definition, ct).ConfigureAwait(false);
+                            rejectionRemarks, ct).ConfigureAwait(false);
                         break;
 
                     case WorkReviewLoop loop:
@@ -160,7 +160,7 @@ internal sealed class WorkflowEngine(
             {
                 ReviewVerdict? stepVerdict;
                 (context, stepVerdict) = await ExecuteStepAsync(
-                    context, step, phaseName, iter, rejectionRemarks, definition, ct).ConfigureAwait(false);
+                    context, step, phaseName, iter, rejectionRemarks, ct).ConfigureAwait(false);
 
                 if (stepVerdict is not null)
                     verdict = stepVerdict;
@@ -179,7 +179,6 @@ internal sealed class WorkflowEngine(
         string phaseName,
         int iteration,
         string? rejectionRemarks,
-        IWorkflowDefinition definition,
         CancellationToken ct)
     {
         DateTimeOffset startedAt = DateTimeOffset.UtcNow;
@@ -191,22 +190,9 @@ internal sealed class WorkflowEngine(
             Status = WorkflowStatus.Running,
         };
 
-        string? artifactPath = step.OutputArtifactPath is not null
-            ? definition.ResolveArtifactPath(context, step)
-            : null;
-
         string templatePath = Path.Combine(context.RepositoryPath, step.PromptTemplatePath);
 
-        IReadOnlyDictionary<string, string> variables = step.Kind switch
-        {
-            StepKind.Work =>
-                BuildWorkVariables(context, iteration, rejectionRemarks),
-            StepKind.Review =>
-                BuildReviewVariables(context, phaseName, step),
-            StepKind.Improve =>
-                await BuildImproveVariablesAsync(context, phaseName, step, definition, ct).ConfigureAwait(false),
-            _ => throw new InvalidOperationException($"Unknown step kind: {step.Kind}"),
-        };
+        IReadOnlyDictionary<string, string> variables = BuildVariables(context, iteration, rejectionRemarks);
 
         string renderedPrompt = await promptRenderer
             .RenderAsync(templatePath, variables, ct).ConfigureAwait(false);
@@ -231,7 +217,7 @@ internal sealed class WorkflowEngine(
 
         StepHistoryEntry entry = new(
             phaseName, step.Id, iteration, StepOutcome.Succeeded,
-            artifactPath, startedAt, DateTimeOffset.UtcNow, null);
+            startedAt, DateTimeOffset.UtcNow, null);
 
         context = context with { History = [.. context.History, entry] };
         await storage.SaveAsync(context, ct).ConfigureAwait(false);
@@ -241,7 +227,7 @@ internal sealed class WorkflowEngine(
 
     // ── Variable builders ────────────────────────────────────────────────────
 
-    private static IReadOnlyDictionary<string, string> BuildWorkVariables(
+    private static IReadOnlyDictionary<string, string> BuildVariables(
         WorkflowContext context, int iteration, string? rejectionRemarks) =>
         new Dictionary<string, string>
         {
@@ -251,72 +237,7 @@ internal sealed class WorkflowEngine(
             ["rejectionRemarks"] = rejectionRemarks ?? string.Empty,
         };
 
-    private static IReadOnlyDictionary<string, string> BuildReviewVariables(
-        WorkflowContext context, string phaseName, StepDefinition step)
-    {
-        string workArtifactPath = ResolveLinkedArtifact(context, step.ReviewTargetStepId!, phaseName);
-        return new Dictionary<string, string>
-        {
-            ["issueNumber"]      = context.IssueNumber,
-            ["phaseName"]        = phaseName,
-            ["workArtifactPath"] = workArtifactPath,
-        };
-    }
-
-    private async Task<IReadOnlyDictionary<string, string>> BuildImproveVariablesAsync(
-        WorkflowContext context,
-        string phaseName,
-        StepDefinition step,
-        IWorkflowDefinition definition,
-        CancellationToken ct)
-    {
-        // step.ReviewTargetStepId → the Review step whose artifact holds the remarks
-        string reviewArtifactPath = ResolveLinkedArtifact(context, step.ReviewTargetStepId!, phaseName);
-        string reviewContent = await File.ReadAllTextAsync(reviewArtifactPath, ct).ConfigureAwait(false);
-
-        // The review step's ReviewTargetStepId → the Work artifact being improved
-        StepDefinition reviewStep = FindStepById(definition, step.ReviewTargetStepId!);
-        string workArtifactPath = ResolveLinkedArtifact(context, reviewStep.ReviewTargetStepId!, phaseName);
-
-        return new Dictionary<string, string>
-        {
-            ["issueNumber"]           = context.IssueNumber,
-            ["phaseName"]             = phaseName,
-            ["reviewArtifactPath"]    = reviewArtifactPath,
-            ["reviewArtifactContent"] = reviewContent,
-            ["workArtifactPath"]      = workArtifactPath,
-            ["remarks"]               = reviewContent,
-        };
-    }
-
     // ── Helpers ──────────────────────────────────────────────────────────────
-
-    private static string ResolveLinkedArtifact(
-        WorkflowContext context, string targetStepId, string phaseName)
-    {
-        StepHistoryEntry? entry = context.History
-            .LastOrDefault(h => h.Phase == phaseName && h.StepId == targetStepId);
-
-        if (entry?.ArtifactPath is null)
-            throw new InvalidOperationException(
-                $"No artifact found for step '{targetStepId}' in phase '{phaseName}'.");
-
-        return entry.ArtifactPath;
-    }
-
-    private static StepDefinition FindStepById(IWorkflowDefinition definition, string stepId)
-    {
-        foreach (PhaseDefinition phase in definition.Phases)
-            foreach (IPhaseStep phaseStep in phase.Steps)
-            {
-                if (phaseStep is StepDefinition sd && sd.Id == stepId) return sd;
-                if (phaseStep is WorkReviewLoop loop)
-                    foreach (StepDefinition ls in loop.Steps)
-                        if (ls.Id == stepId) return ls;
-            }
-
-        throw new InvalidOperationException($"Step '{stepId}' not found in workflow definition.");
-    }
 
     private static string InstanceBranchRoot(WorkflowContext ctx) =>
         $"cFabric-{ctx.ShortId}/feature/#{ctx.IssueNumber}-{ctx.IssueShortName}";

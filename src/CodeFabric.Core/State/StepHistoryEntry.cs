@@ -6,7 +6,6 @@ public sealed record StepHistoryEntry(
     string StepId,
     int Iteration,
     StepOutcome Outcome,
-    string? ArtifactPath,
     DateTimeOffset StartedAt,
     DateTimeOffset CompletedAt,
     string? FailureReason);

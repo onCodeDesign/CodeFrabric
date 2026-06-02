@@ -21,10 +21,4 @@ public interface IWorkflowDefinition
     /// work-review loop.
     /// </summary>
     LoopTerminationPolicy GetLoopPolicy(WorkReviewLoop loop);
-
-    /// <summary>
-    /// Resolves the full output artifact path for a step given the current
-    /// runtime context (e.g. repository path, iteration number).
-    /// </summary>
-    string ResolveArtifactPath(WorkflowContext context, StepDefinition step);
 }

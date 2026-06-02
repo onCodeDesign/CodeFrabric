@@ -1,0 +1,112 @@
+{
+  "workflowType": "FeatureWorkflow",
+  "loopPolicy": {
+    "kind": "SeverityThreshold",
+    "threshold": "Minor"
+  },
+  "phases": [
+    {
+      "name": "Design",
+      "steps": [
+        {
+          "$type": "step",
+          "id": "HighLevelDesign",
+          "name": "High Level Design",
+          "kind": "Work",
+          "agentName": "architect",
+          "promptTemplatePath": "prompts/feature/design/01_high-level-design.md",
+          "reviewTargetStepId": null
+        },
+        {
+          "$type": "step",
+          "id": "ReviewHighLevelDesign",
+          "name": "Review High Level Design",
+          "kind": "Improve",
+          "agentName": "architect",
+          "promptTemplatePath": "prompts/feature/design/02_review-high-level-design.md",
+          "reviewTargetStepId": "HighLevelDesign"
+        },
+        {
+          "$type": "step",
+          "id": "DetailedDesign",
+          "name": "Detailed Design",
+          "kind": "Work",
+          "agentName": "detailed-designer",
+          "promptTemplatePath": "prompts/feature/design/03_detailed-design.md",
+          "reviewTargetStepId": null
+        },
+        {
+          "$type": "loop",
+          "id": "DetailedDesignReviewLoop",
+          "name": "Review Detailed Design",
+          "maxIterations": 2,
+          "steps": [
+            {
+              "id": "ReviewDetailedDesign",
+              "name": "Review Detailed Design",
+              "kind": "Review",
+              "agentName": "detailed-designer",
+              "promptTemplatePath": "prompts/feature/design/04_review-detailed-design.md",
+              "reviewTargetStepId": "DetailedDesign"
+            },
+            {
+              "id": "ImproveDetailedDesign",
+              "name": "Improve Detailed Design",
+              "kind": "ProcessReview",
+              "agentName": "detailed-designer",
+              "promptTemplatePath": "prompts/feature/design/05_improve-detailed-design.md",
+              "reviewTargetStepId": "ReviewDetailedDesign"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Implement",
+      "steps": [
+        {
+          "$type": "step",
+          "id": "CodeImplementation",
+          "name": "Code Implementation",
+          "kind": "Work",
+          "agentName": "coder",
+          "promptTemplatePath": "prompts/feature/implement/01_code-implementation.md",
+          "reviewTargetStepId": null
+        },
+        {
+          "$type": "step",
+          "id": "UnitTesting",
+          "name": "Unit Testing",
+          "kind": "Work",
+          "agentName": "coder",
+          "promptTemplatePath": "prompts/feature/implement/02_unit-testing.md",
+          "reviewTargetStepId": null
+        },
+        {
+          "$type": "loop",
+          "id": "ImplementationReviewLoop",
+          "name": "Implementation Review Loop",
+          "maxIterations": 2,
+          "steps": [
+            {
+              "id": "CodeReview",
+              "name": "Code Review",
+              "kind": "Review",
+              "agentName": "code-reviewer",
+              "promptTemplatePath": "prompts/feature/implement/03_code-review.md",
+              "reviewTargetStepId": "CodeImplementation"
+            },
+            {
+              "id": "ProcessReview",
+              "name": "Process Code Review",
+              "kind": "ProcessReview",
+              "agentName": "coder",
+              "promptTemplatePath": "prompts/feature/implement/04_apply-code-review.md",
+              "reviewTargetStepId": "CodeReview"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

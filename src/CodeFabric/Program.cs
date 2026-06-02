@@ -2,6 +2,8 @@ using AppBoot;
 using AppBoot.AssemblyLoad;
 using AppBoot.DependencyInjection;
 using CodeFabric.Core.Contracts;
+using CodeFabric.Core.Definitions;
+using CodeFabric.Core.Engine.WorkflowDefinition;
 using CodeFabric.Core.State;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -65,9 +67,18 @@ WorkflowRunRequest request = new(
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 IBootstrapper bootstrapper = null!;
 
+string workflowsFolder = Path.Combine(AppContext.BaseDirectory, "definitions");
+
 IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices(services =>
     {
+        // Register workflow definitions loaded from the definitions folder.
+        foreach (IWorkflowDefinition definition in
+            JsonWorkflowDefinitionLoader.LoadFromFolder(workflowsFolder))
+        {
+            services.AddSingleton(definition);
+        }
+
         bootstrapper = services
             .AddAppBoot(options =>
             {
