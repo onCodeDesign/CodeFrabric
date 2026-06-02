@@ -190,7 +190,8 @@ internal sealed class WorkflowEngine(
             Status = WorkflowStatus.Running,
         };
 
-        string templatePath = Path.Combine(context.RepositoryPath, step.PromptTemplatePath);
+        string[] templateSegments = step.PromptTemplatePath.Split('/', '\\');
+        string templatePath = Path.Combine([context.RepositoryPath, ".cfabric", ..templateSegments]);
 
         IReadOnlyDictionary<string, string> variables = BuildVariables(context, iteration, rejectionRemarks);
 
