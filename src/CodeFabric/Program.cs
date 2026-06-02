@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 // ── Cancellation ──────────────────────────────────────────────────────────────
+Console.OutputEncoding = System.Text.Encoding.UTF8;
 using CancellationTokenSource cts = new();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 

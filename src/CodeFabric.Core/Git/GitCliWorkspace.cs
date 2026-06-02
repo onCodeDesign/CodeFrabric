@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using AppBoot.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -70,10 +71,12 @@ public sealed class GitCliWorkspace : IGitWorkspace
             throw new InvalidOperationException("Failed to start the git process.");
         }
 
+        Console.WriteLine($"▶ git {string.Join(" ", args)}");
+
         using CancellationTokenRegistration registration = ct.Register(static state => TryKillProcess((Process)state!), process);
 
-        Task<string> standardOutputTask = process.StandardOutput.ReadToEndAsync(ct);
-        Task<string> standardErrorTask = process.StandardError.ReadToEndAsync(ct);
+        Task<string> standardOutputTask = ForwardStreamAsync(process.StandardOutput, Console.Out);
+        Task<string> standardErrorTask = ForwardStreamAsync(process.StandardError, Console.Out);
 
         try
         {
@@ -108,5 +111,28 @@ public sealed class GitCliWorkspace : IGitWorkspace
         catch (InvalidOperationException)
         {
         }
+    }
+
+    /// <summary>
+    /// Reads all lines from <paramref name="reader"/>, forwarding each to <paramref name="output"/>
+    /// in real time, and returns the accumulated text.
+    /// </summary>
+    /// <remarks>
+    /// Uses <see cref="CancellationToken.None"/> for stream I/O so the task completes naturally
+    /// when the process closes its pipe — even if the workflow is cancelled.
+    /// </remarks>
+    private static async Task<string> ForwardStreamAsync(StreamReader reader, TextWriter output)
+    {
+        var sb = new StringBuilder();
+        string? line;
+        while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) is not null)
+        {
+            sb.AppendLine(line);
+            if (line.Length > 0)
+            {
+                await output.WriteLineAsync(line).ConfigureAwait(false);
+            }
+        }
+        return sb.ToString();
     }
 }

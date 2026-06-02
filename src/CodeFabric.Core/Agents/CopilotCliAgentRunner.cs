@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.RegularExpressions;
 using AppBoot.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,8 @@ public sealed partial class CopilotCliAgentRunner() : IAgentRunner
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8,
             CreateNoWindow = true,
         };
 
@@ -45,10 +48,12 @@ public sealed partial class CopilotCliAgentRunner() : IAgentRunner
             throw new InvalidOperationException("Failed to start the Copilot CLI agent process.");
         }
 
+        Console.WriteLine($"▶ copilot --agent={invocation.AgentName}");
+
         using CancellationTokenRegistration registration = ct.Register(static state => TryKillProcess((Process)state!), process);
 
-        Task<string> standardOutputTask = process.StandardOutput.ReadToEndAsync(ct);
-        Task<string> standardErrorTask = process.StandardError.ReadToEndAsync(ct);
+        Task<string> standardOutputTask = ForwardStreamAsync(process.StandardOutput, Console.Out);
+        Task<string> standardErrorTask = ForwardStreamAsync(process.StandardError, Console.Error);
 
         try
         {
@@ -85,6 +90,26 @@ public sealed partial class CopilotCliAgentRunner() : IAgentRunner
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Reads all lines from <paramref name="reader"/>, forwarding each to <paramref name="output"/>
+    /// in real time, and returns the accumulated text.
+    /// </summary>
+    /// <remarks>
+    /// Uses <see cref="CancellationToken.None"/> for stream I/O so the task completes naturally
+    /// when the process closes its pipe — even if the workflow is cancelled.
+    /// </remarks>
+    private static async Task<string> ForwardStreamAsync(StreamReader reader, TextWriter output)
+    {
+        var sb = new StringBuilder();
+        string? line;
+        while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) is not null)
+        {
+            sb.AppendLine(line);
+            await output.WriteLineAsync(line).ConfigureAwait(false);
+        }
+        return sb.ToString();
     }
 
     private static void TryKillProcess(Process process)
