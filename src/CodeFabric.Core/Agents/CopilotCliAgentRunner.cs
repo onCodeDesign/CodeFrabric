@@ -13,7 +13,7 @@ namespace CodeFabric.Core.Agents;
 public sealed partial class CopilotCliAgentRunner() : IAgentRunner
 {
     private const string CopilotExecutable = "copilot";
-    private const string ModelName = "claude-sonnet-4.6";
+    private const string ModelName = "claude-sonnet-5.5";
     private const string HandoutContentGroupName = "content";
 
     /// <inheritdoc />
